@@ -1,0 +1,65 @@
+<!--
+   Copyright 2014 Alexander Kosarev.
+  
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+  
+        http://www.apache.org/licenses/LICENSE-2.0
+  
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Start Page</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
+        <style type="text/css">
+            .alignLeft {text-align:left;}
+            .alignRight {text-align:right;}
+            #_ws_chat {width:400px;}
+        </style>
+    </head>
+    <body>
+        <h1>Hello WebSocket World!</h1>
+        <div id="_ws_chat"></div>
+        <textarea id="_ws_message" cols="30"></textarea>
+        <button onclick="sendMessage()">Send</button>
+        <script type="text/javascript">
+            if ('WebSocket' in window) {
+                var ws = new WebSocket('ws://localhost:8080/sandbox-websocket/sandbox');
+
+                ws.onmessage = function(event) {
+                    console.log(event);
+                    $('div#_ws_chat').append('<div class="alignRight">Servcer wrote: ' + event.data + '</div>');
+                };
+
+                ws.onopen = function(event) {
+                    console.log(event);
+                };
+
+                ws.onclose = function(event) {
+                    console.log(event);
+                };
+
+                ws.onerror = function(event) {
+                    console.log(event);
+                };
+
+                function sendMessage() {
+                    if (ws != undefined) {
+                        var msg = $('textarea#_ws_message').val();
+                        $('div#_ws_chat').append('<div class="alignLeft">You wrote: ' + msg + '</div>');
+                        ws.send(msg);
+                        $('textarea#_ws_message').val('');
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>
