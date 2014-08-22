@@ -1,0 +1,162 @@
+<!--
+   Copyright 2014 Alexander Kosarev.
+  
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+  
+        http://www.apache.org/licenses/LICENSE-2.0
+  
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat example</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script type="text/javascript" src="http://code.jquery.com/jquery-2.1.1.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+        <script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+                    <h1 class="page-header">Chat</h1>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xs-12 col-sm-6 col-md-4 col-lg-3">
+                    <form id="_ws_chat_login_form">
+                        <div class="form-group">
+                            <label for="_ws_username">Your name:</label>
+                            <input type="text" class="form-control" id="_ws_username" placeholder="Input your name"/>
+                        </div>
+                        <a href="#send" onclick="login()" class="btn btn-primary">Login</a>
+                    </form>
+                    <table class="table hide" id="_ws_chat_receivers">
+                        <tr>
+                            <th>Receivers</th>
+                        </tr>
+                        <tr class="receiver info">
+                            <td>All</td>
+                        </tr>
+                    </table>
+                    <form class="hide" id="_ws_chat_message_form">
+                        <div class="form-group">
+                            <label for="_ws_message">Message:</label>
+                            <textarea id="_ws_message" class="form-control"></textarea>
+                        </div>
+                        <a href="#send" onclick="sendMessage()" class="btn btn-primary">Send</a>
+                        <a href="#logout" onclick="logout()" class="btn btn-default">Logout</a>
+                    </form>
+                </div>
+                <div class="col-xs-12 col-sm-6 col-md-4 col-lg-3" id="_ws_chat">
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var userName;
+            var ws;
+
+            function login() {
+                userName = $('input#_ws_username').val();
+                $('form#_ws_chat_login_form').addClass('hide');
+                $('form#_ws_chat_message_form').removeClass('hide');
+                $('table#_ws_chat_receivers').removeClass('hide');
+                if ('WebSocket' in window) {
+                    ws = new WebSocket('ws://localhost:8080/sandbox-websocket/chat');
+
+                    ws.onmessage = function(event) {
+                        var msg = JSON.parse(event.data);
+                        switch (msg._class) {
+                            case 'org.acruxsource.sandbox.websocket.domain.ServerActionMessage':
+                                serverAction(msg.message);
+                                break;
+                            case 'org.acruxsource.sandbox.websocket.domain.ChatParticipantsMessage':
+                                updateParticipantsList(msg.message);
+                                break;
+                            default:
+                                var receiver;
+                                if (msg._class === 'org.acruxsource.sandbox.websocket.domain.PrivateChatMessage') {
+                                    receiver = msg.message.receiver;
+                                } else {
+                                    receiver = 'All';
+                                }
+                                
+                                $('div#_ws_chat').append('<div class="well well-sm"><small><b>' + msg.message.sender + '</b> wrote to <b>' + receiver + '</b> at ' + msg.message.sendDate + ':</small><br/>' + msg.message.message + '</div>');
+                                break;
+                        }
+                    };
+
+                    ws.onopen = function(event) {
+                        console.log(event);
+                        var date = new Date();
+                        var sendDate = date.getFullYear() + '-' + (0 + '' + (date.getMonth() + 1)).slice(-2) + '-' + (0 + '' + date.getDate()).slice(-2) + ' ' + (0 + '' + date.getHours()).slice(-2) + ':' + (0 + '' + date.getMinutes()).slice(-2) + ':' + (0 + '' + date.getSeconds()).slice(-2);
+                        ws.send(JSON.stringify({'_class': 'org.acruxsource.sandbox.websocket.domain.LoginMessage', 'message': {'sender': userName, 'sendDate': sendDate}}))
+                    };
+
+                    ws.onclose = function(event) {
+                        console.log(event);
+                    };
+
+                    ws.onerror = function(event) {
+                        console.log(event);
+                    };
+                }
+            }
+
+            function serverAction(serverActionMessage) {
+                if (serverActionMessage.action === 'login' && serverActionMessage.sender != userName) {
+                    $('table#_ws_chat_receivers tbody').append('<tr class="receiver" data-login="' + serverActionMessage.sender + '"><td>' + serverActionMessage.sender + '</td></tr>');
+                }
+            }
+            
+            function updateParticipantsList(message) {
+                for (var i in message.participants) {
+                    if ($('table#_ws_chat_receivers tr[data-login="' + message.participants[i] + '"]').size() == 0) {
+                        $('table#_ws_chat_receivers tbody').append('<tr class="receiver" data-login="' + message.participants[i] + '"><td>' + message.participants[i] + '</td></tr>');
+                    }
+                }
+            }
+
+            function logout() {
+                ws.close();
+                $('form#_ws_chat_login_form').removeClass('hide');
+                $('form#_ws_chat_message_form').addClass('hide');
+                $('table#_ws_chat_receivers').addClass('hide');
+                $('div#_ws_chat').children().remove();
+            }
+
+            function sendMessage() {
+                if (ws != undefined) {
+                    var msg = $('textarea#_ws_message').val();
+                    var date = new Date();
+                    var sendDate = date.getFullYear() + '-' + (0 + '' + (date.getMonth() + 1)).slice(-2) + '-' + (0 + '' + date.getDate()).slice(-2) + ' ' + (0 + '' + date.getHours()).slice(-2) + ':' + (0 + '' + date.getMinutes()).slice(-2) + ':' + (0 + '' + date.getSeconds()).slice(-2);
+                    if ($('table#_ws_chat_receivers tr.info').data('login')) {
+                        ws.send(JSON.stringify({'_class': 'org.acruxsource.sandbox.websocket.domain.PrivateChatMessage', 'message': {'receiver': $('table#_ws_chat_receivers tr.info').data('login'), 'sender': userName, 'message': msg, 'sendDate': sendDate}}));
+                    } else {
+                        ws.send(JSON.stringify({'_class': 'org.acruxsource.sandbox.websocket.domain.ChatMessage', 'message': {'sender': userName, 'message': msg, 'sendDate': sendDate}}));
+                    }
+
+                    $('textarea#_ws_message').val('');
+                }
+            }
+
+            $('table#_ws_chat_receivers').on('click', 'tr td', function() {
+                $('table#_ws_chat_receivers tr.info').removeClass('info');
+                if ($(this).parent().hasClass('receiver')) {
+                    $(this).parent().toggleClass('info');
+                }
+
+                if ($('table#_ws_chat_receivers tr.info').size() == 0) {
+                    $('table#_ws_chat_receivers td:first').parent().addClass('info');
+                }
+            });
+        </script>
+    </body>
+</html>
